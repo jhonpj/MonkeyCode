@@ -1,0 +1,1 @@
+ALTER TABLE security_scanning_results ADD COLUMN file_content TEXT;

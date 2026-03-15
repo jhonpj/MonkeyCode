@@ -1,0 +1,3 @@
+ALTER TABLE ai_employees ADD COLUMN IF NOT EXISTS created_by VARCHAR(20) DEFAULT 'admin';
+ALTER TABLE ai_employees ADD COLUMN IF NOT EXISTS user_id UUID;
+ALTER TABLE ai_employees ALTER COLUMN admin_id DROP NOT NULL;
