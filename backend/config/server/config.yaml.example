@@ -1,0 +1,44 @@
+debug: true
+server:
+  addr: ":8888"
+  base_url: "http://localhost:8888"
+
+database:
+  master: "postgres://monkeycode:monkeycode@localhost:5432/monkeycode?sslmode=disable"
+  slave: ""
+  max_open_conns: 100
+  max_idle_conns: 50
+  conn_max_lifetime: 30
+
+redis:
+  host: "localhost"
+  port: 6379
+  pass: ""
+  db: 0
+
+session:
+  secret: "change-me-to-a-random-32-byte-key"
+  expire: 86400
+
+smtp:
+  host: "smtp.example.com"
+  port: 587
+  username: ""
+  password: ""
+  from: "noreply@example.com"
+  tls: false
+
+root_path: "/app"
+admin_token: "change-me"
+
+logger:
+  level: "info"
+
+mcp_hub:
+  enabled: false
+  url: "http://mcp-hub:8897/mcp"
+  token: ""
+
+vm_idle:
+  sleep_seconds: 600
+  recycle_seconds: 604800
