@@ -1,0 +1,199 @@
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Spinner } from "@/components/ui/spinner"
+import { cn } from "@/lib/utils"
+import { uploadFileWithPresignedUrl } from "@/utils/common"
+import { IconFile, IconTrash, IconUpload } from "@tabler/icons-react"
+import React from "react"
+import { toast } from "sonner"
+import { isTaskImageAttachment } from "./task-shared"
+
+export interface TaskUploadedFile {
+  name: string
+  size: number
+  type: string
+  accessUrl: string
+}
+
+export async function uploadTaskFile(file: File): Promise<TaskUploadedFile> {
+  const uploadedFile = await uploadFileWithPresignedUrl(file)
+
+  return {
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    accessUrl: uploadedFile.accessUrl,
+  }
+}
+
+interface TaskFileUploadDialogProps {
+  open: boolean
+  file: File | null
+  autoUpload?: boolean
+  onOpenChange: (open: boolean) => void
+  onUploaded: (file: TaskUploadedFile) => void
+}
+
+interface TaskUploadedFileItemProps {
+  file: TaskUploadedFile
+  onRemove: () => void
+  onPreview?: () => void
+  className?: string
+}
+
+export function formatFileSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+export function TaskFileUploadDialog({ open, file, autoUpload = false, onOpenChange, onUploaded }: TaskFileUploadDialogProps) {
+  const [uploading, setUploading] = React.useState(false)
+  const [filePreviewUrl, setFilePreviewUrl] = React.useState<string | null>(null)
+  const autoUploadStartedRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (!open) {
+      setUploading(false)
+      autoUploadStartedRef.current = false
+    }
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open || !file || !isTaskImageAttachment(file.name)) {
+      setFilePreviewUrl(null)
+      return
+    }
+
+    const nextPreviewUrl = URL.createObjectURL(file)
+    setFilePreviewUrl(nextPreviewUrl)
+    return () => URL.revokeObjectURL(nextPreviewUrl)
+  }, [file, open])
+
+  const handleUpload = React.useCallback(async () => {
+    if (!file || uploading) return
+
+    setUploading(true)
+    try {
+      const uploadedFile = await uploadTaskFile(file)
+      onUploaded(uploadedFile)
+      toast.success("文件上传成功")
+      onOpenChange(false)
+    } catch (error) {
+      toast.error((error as Error).message)
+    } finally {
+      setUploading(false)
+    }
+  }, [file, onOpenChange, onUploaded, uploading])
+
+  React.useEffect(() => {
+    if (!open || !file || !autoUpload || uploading || autoUploadStartedRef.current) {
+      return
+    }
+
+    autoUploadStartedRef.current = true
+    void handleUpload()
+  }, [autoUpload, file, handleUpload, open, uploading])
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (uploading) return
+        onOpenChange(nextOpen)
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>上传文件</DialogTitle>
+          <DialogDescription>
+            确认文件信息后开始上传。
+          </DialogDescription>
+        </DialogHeader>
+
+        {file && (
+          <div className="flex min-w-0 items-start gap-3 rounded-md border bg-muted/25 p-3">
+            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-background text-muted-foreground">
+              {filePreviewUrl ? (
+                <img src={filePreviewUrl} alt={file.name} className="size-full object-cover" />
+              ) : (
+                <IconFile className="size-5" />
+              )}
+            </div>
+            <div className="w-0 min-w-0 flex-1">
+              <div className="max-w-full truncate text-sm font-medium" title={file.name}>{file.name}</div>
+              <div className="mt-1 flex max-w-full flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span>{formatFileSize(file.size)}</span>
+                <span>{file.type || "未知类型"}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={uploading}
+            onClick={() => onOpenChange(false)}
+          >
+            取消
+          </Button>
+          <Button
+            type="button"
+            disabled={!file || uploading}
+            onClick={handleUpload}
+          >
+            {uploading ? <Spinner className="size-4" /> : <IconUpload className="size-4" />}
+            上传
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function TaskUploadedFileItem({ file, onRemove, onPreview, className }: TaskUploadedFileItemProps) {
+  return (
+    <div
+      className={cn(
+        "group/uploaded-file flex h-8 w-32 min-w-0 items-center gap-2 rounded-full border bg-background px-2 text-xs text-foreground shadow-xs",
+        className
+      )}
+      title={file.name}
+    >
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+        onClick={onPreview}
+        aria-label={`预览附件 ${file.name}`}
+      >
+        {isTaskImageAttachment(file.name) ? (
+          <img src={file.accessUrl} alt={file.name} className="size-4 shrink-0 rounded-full border object-cover" />
+        ) : (
+          <IconFile className="size-4 shrink-0 text-muted-foreground" />
+        )}
+        <span className="min-w-0 flex-1 truncate group-hover/uploaded-file:text-primary">{file.name}</span>
+      </button>
+      <button
+        type="button"
+        className="hidden size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover/uploaded-file:flex"
+        onClick={onRemove}
+        aria-label="删除已上传文件"
+      >
+        <IconTrash className="size-3.5" />
+      </button>
+    </div>
+  )
+}
